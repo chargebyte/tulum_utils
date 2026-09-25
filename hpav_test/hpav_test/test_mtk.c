@@ -144,6 +144,7 @@ int test_mme_mtk_vs_set_nvram_req(hpav_chan_t *channel, int argc,
 
     if (1 != fread(block_data, nvram_read_size, 1, nvram)) {
         printf("error while reading file %s\n", argv[2]);
+    	fclose(nvram);
         return -1;
     }
 
