@@ -26,6 +26,7 @@
 #include "hpav_api.h"
 #include "hpav_utils.h"
 #include "parson.h"
+#include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -544,16 +545,24 @@ static bool Is_notched_carrier(int idx, int backoff) {
     return false;
 }
 
-static void removeChar(char *str, char garbage) {
-
+static void remove_garbage_from_str(char *str) {
     char *src, *dst;
     for (src = dst = str; *src != '\0'; src++) {
         *dst = *src;
-        if (*dst != garbage)
+        switch (*dst) {
+        case '(':
+        case ')':
+        case '\r':
+        case '\n':
+            break;
+        default:
             dst++;
+        }
     }
     *dst = '\0';
 }
+
+#define MAX_PSD_LINES 4096
 
 static int conf_file_modify_psd_cali(conf_file_modify_t *ctx, int argc,
                                      char *argv[]) {
@@ -561,8 +570,8 @@ static int conf_file_modify_psd_cali(conf_file_modify_t *ctx, int argc,
     FILE *fp;
     char *pch;
     char str[20];
-    char carrier_range_array[4096][20];
-    char compensate_value_array[4096][20];
+    char carrier_range_array[MAX_PSD_LINES][20];
+    char compensate_value_array[MAX_PSD_LINES][20];
 
     int first_idx, second_idx, compensate_value;
 
@@ -573,8 +582,7 @@ static int conf_file_modify_psd_cali(conf_file_modify_t *ctx, int argc,
         return -3;
     }
     while (fgets(str, 20, fp)) {
-        removeChar(str, '(');
-        removeChar(str, ')');
+    	remove_garbage_from_str(str);
         // Get carrier index and compensate_value
         for (j = 1, pch = strtok(str, ","); pch != NULL;
              pch = strtok(NULL, ","), j++) {
@@ -584,6 +592,8 @@ static int conf_file_modify_psd_cali(conf_file_modify_t *ctx, int argc,
                 strcpy(compensate_value_array[lines], pch);
         }
         lines++;
+        if (lines == MAX_PSD_LINES)
+            break;
     }
     fclose(fp);
 
@@ -607,17 +617,44 @@ static int conf_file_modify_psd_cali(conf_file_modify_t *ctx, int argc,
     // Calculate
     for (i = 0; i < lines; i++) {
         char tmp_char[20];
+        if (!isdigit(carrier_range_array[i][0])) {
+        	continue;
+        }
         pch = strtok(carrier_range_array[i], "-");
+        if (pch == NULL) {
+            printf("carrier range array in %s line %d is empty.\n",
+                   argv[0], i + 1);
+            continue;
+        }
+
         strcpy(tmp_char, pch);
-        sscanf(tmp_char, "%d", &first_idx);
+        if (sscanf(tmp_char, "%d", &first_idx) == 0) {
+            printf("carrier range start in %s line %d is incorrect.\n",
+        	       argv[0], i + 1);
+            continue;
+        }
 
         pch = strtok(NULL, "-");
+        if (pch == NULL) {
+            printf("carrier range array in %s line %d is incomplete.\n",
+                   argv[0], i + 1);
+            continue;
+        }
         strcpy(tmp_char, pch);
-        sscanf(tmp_char, "%d", &second_idx);
+        if (sscanf(tmp_char, "%d", &second_idx) == 0) {
+            printf("carrier range end in %s line %d is incorrect.\n",
+                   argv[0], i + 1);
+            continue;
+        }
 
-        sscanf(compensate_value_array[i], "%d", &compensate_value);
+        if (first_idx > second_idx) {
+            printf("carrier range start=%d is greater than range end=%d in %s line %d.\n",
+                   first_idx, second_idx, argv[0], i + 1);
+            continue;
+        }
 
-        if (compensate_value % 2 == 0 &&
+        if (sscanf(compensate_value_array[i], "%d", &compensate_value) &&
+        	(compensate_value % 2 == 0) &&
             (compensate_value >= -28 && compensate_value <= 28) &&
             (compensate_value != 0)) {
             for (j = first_idx; j <= second_idx; j++) {
