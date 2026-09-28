@@ -258,11 +258,10 @@ int test_nvram_modify(int argc, char *argv[]) {
 
     int i;
     if (strcmp(argv[1], "mac") == 0) {
+    	unsigned char mac_data[6];
         int mac_int[6];
         sscanf(argv[2], "%x:%x:%x:%x:%x:%x", &mac_int[0], &mac_int[1],
                &mac_int[2], &mac_int[3], &mac_int[4], &mac_int[5]);
-        unsigned char *mac_data;
-        mac_data = malloc(6);
         for (i = 0; i < 6; i++) {
             mac_data[i] = (unsigned char)mac_int[i];
         }

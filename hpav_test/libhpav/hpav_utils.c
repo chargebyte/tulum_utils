@@ -629,6 +629,10 @@ int hpav_file_to_binary_data(const char *filename, unsigned char **result_data,
 
     // Allocate buffer
     *result_data = (unsigned char *)malloc(file_size);
+    if (*result_data == NULL) {
+        fclose(fd);
+        return HPAV_NOK;
+    }
     // Read file data
     if (1 != fread(*result_data, file_size, 1, fd)) {
     	sprintf(buffer, "Cannot read file <%s>\n", filename);

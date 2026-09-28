@@ -2304,6 +2304,9 @@ process_mtk_vs_file_access_cnf(mtk_vs_file_access_command_t *command,
             if (response->op == HPAV_MTK_VS_FILE_ACCESS_REQ_OP_READ ||
                 response->op == HPAV_MTK_VS_FILE_ACCESS_REQ_OP_LIST_DIR) {
                 buf = (char *)malloc(response->length + 1);
+                if (buf == NULL) {
+                    return HPAV_MTK_FILE_ACCESS_CNF_MSTATUS_FAIL;
+                }
                 memcpy(buf, response->data, response->length);
                 buf[response->length] = 0;
 
@@ -2543,6 +2546,10 @@ int test_mme_mtk_vs_file_access_req(hpav_chan_t *channel, int argc,
             rewind(fp);
 
             buf = (char *)malloc(file_size);
+            if (buf == NULL) {
+                fclose(fp);
+                return MTK_VS_FILE_ACCESS_REQ_FAIL;
+            }
             if (1 != fread(buf, file_size, 1, fp)) {
                 test_mtk_printf("Unexpected fread result - %s\n",
                                 cmd->file_name);

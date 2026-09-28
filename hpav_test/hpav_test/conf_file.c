@@ -602,6 +602,9 @@ static int conf_file_modify_psd_cali(conf_file_modify_t *ctx, int argc,
         json_object_get_array(ctx->inka_phy_obj, "am_infile");
     int am_infile_array_cnt = json_array_get_count(am_infile_array);
     int *backoff_array = malloc(sizeof(int) * am_infile_array_cnt * 8);
+    if (backoff_array == NULL) {
+        return -1;
+    }
 
     for (m = 0; m < am_infile_array_cnt; m++) {
         double tmp_amp_data = 0;
@@ -680,11 +683,14 @@ static int conf_file_modify_psd_cali(conf_file_modify_t *ctx, int argc,
         unsigned long tmp_amp_map;
         tmp_amp_map |= (backoff_array[i] << ((7 - (i % 8)) * 4));
         if (i % 8 == 7) {
-            if (JSONFailure == json_array_append_number(am_infile_array, tmp_amp_map))
+            if (JSONFailure == json_array_append_number(am_infile_array, tmp_amp_map)) {
+                free(backoff_array);
                 return -2;
+            }
             tmp_amp_map = 0;
         }
     }
+    free(backoff_array);
     return 0;
 }
 
